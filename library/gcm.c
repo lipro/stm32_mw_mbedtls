@@ -25,7 +25,7 @@
 /*
  *  http://csrc.nist.gov/publications/nistpubs/800-38D/SP-800-38D.pdf
  */
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_GCM_C)
 
@@ -619,3 +619,4 @@ int gcm_self_test( int verbose )
 #endif
 
 #endif
+

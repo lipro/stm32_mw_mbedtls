@@ -23,7 +23,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "polarssl/config.h"
+/* Note: This file has been modified by ST's MCD Application Team */
+
+#include "config.h"
 
 #if defined(POLARSSL_NET_C)
 
@@ -47,27 +49,30 @@
 static int wsa_init_done = 0;
 
 #else
-
+#if  (!defined(__ICCARM__)) && (!defined(__CC_ARM)) && (!defined(__GNUC__)) && (!defined(__TASKING__))
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/time.h>
-#include <unistd.h>
+#endif
+#include "lwip/sockets.h"
+#include "lwip/inet.h"
+#if LWIP_DNS == 1
+#include "lwip/netdb.h"
+#endif
+//#include <sys/time.h>
+//#include <unistd.h>
 #include <signal.h>
+
+#if  (!defined(__ICCARM__)) && (!defined(__CC_ARM)) && (!defined(__GNUC__)) && (!defined(__TASKING__))
 #include <fcntl.h>
-#include <netdb.h>
+#endif
+
 #include <errno.h>
 
-#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) ||  \
-    defined(__DragonflyBSD__)
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <sys/endian.h>
 #elif defined(__APPLE__)
 #include <machine/endian.h>
-#elif defined(sun)
-#include <sys/isa_defs.h>
 #else
-#include <endian.h>
+//#include <endian.h>
 #endif
 
 #endif
@@ -111,7 +116,9 @@ unsigned long  net_htonl(unsigned long  n);
 int net_connect( int *fd, const char *host, int port )
 {
     struct sockaddr_in server_addr;
+#if LWIP_DNS == 1    
     struct hostent *server_host;
+#endif
 
 #if defined(_WIN32) || defined(_WIN32_WCE)
     WSADATA wsaData;
@@ -124,18 +131,31 @@ int net_connect( int *fd, const char *host, int port )
         wsa_init_done = 1;
     }
 #else
+#if  (!defined(__ICCARM__)) && (!defined(__CC_ARM)) && (!defined(__GNUC__)) && (!defined(__TASKING__))
     signal( SIGPIPE, SIG_IGN );
 #endif
-
-    if( ( server_host = gethostbyname( host ) ) == NULL )
+#endif
+#if LWIP_DNS == 1
+    if( ( server_host = gethostbyname( host ) ) == NULL ) {
+    	printf( "SSL: ! gethostbyname ERROR :" );
+    	printf(host);
+    	printf( "\n" );
         return( POLARSSL_ERR_NET_UNKNOWN_HOST );
+       }
+    printf ( "SSL: gethostbyname OK\n" );
+    memcpy( (void *) &server_addr.sin_addr,
+                (void *) server_host->h_addr,
+                         server_host->h_length );
+#else
+    printf( "SSL: no DNS mode\n" );
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_len         = sizeof(server_addr);
+    server_addr.sin_addr.s_addr = inet_addr(host);
+      
+#endif
 
     if( ( *fd = socket( AF_INET, SOCK_STREAM, IPPROTO_IP ) ) < 0 )
         return( POLARSSL_ERR_NET_SOCKET_FAILED );
-
-    memcpy( (void *) &server_addr.sin_addr,
-            (void *) server_host->h_addr,
-                     server_host->h_length );
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_port   = net_htons( port );
@@ -169,7 +189,9 @@ int net_bind( int *fd, const char *bind_ip, int port )
         wsa_init_done = 1;
     }
 #else
+#if  (!defined(__ICCARM__)) && (!defined(__CC_ARM)) && (!defined(__GNUC__)) && (!defined(__TASKING__))
     signal( SIGPIPE, SIG_IGN );
+#endif
 #endif
 
     if( ( *fd = socket( AF_INET, SOCK_STREAM, IPPROTO_IP ) ) < 0 )
@@ -249,7 +271,7 @@ int net_accept( int bind_fd, int *client_fd, void *client_ip )
     defined(_SOCKLEN_T_DECLARED)
     socklen_t n = (socklen_t) sizeof( client_addr );
 #else
-    int n = (int) sizeof( client_addr );
+    u32_t n = (int) sizeof( client_addr );
 #endif
 
     *client_fd = accept( bind_fd, (struct sockaddr *)
@@ -275,8 +297,8 @@ int net_accept( int bind_fd, int *client_fd, void *client_ip )
  */
 int net_set_block( int fd )
 {
-#if defined(_WIN32) || defined(_WIN32_WCE)
-    u_long n = 0;
+#if defined(WIN32) || defined(_WIN32_WCE) || defined(__ICCARM__) || defined(__CC_ARM) || defined(__GNUC__) || defined(__TASKING__)
+    unsigned long n = 0;
     return( ioctlsocket( fd, FIONBIO, &n ) );
 #else
     return( fcntl( fd, F_SETFL, fcntl( fd, F_GETFL ) & ~O_NONBLOCK ) );
@@ -285,8 +307,8 @@ int net_set_block( int fd )
 
 int net_set_nonblock( int fd )
 {
-#if defined(_WIN32) || defined(_WIN32_WCE)
-    u_long n = 1;
+#if defined(WIN32) || defined(_WIN32_WCE) || defined(__ICCARM__) || defined(__CC_ARM) || defined(__GNUC__) || defined(__TASKING__)
+    unsigned long n = 1;
     return( ioctlsocket( fd, FIONBIO, &n ) );
 #else
     return( fcntl( fd, F_SETFL, fcntl( fd, F_GETFL ) | O_NONBLOCK ) );
@@ -372,3 +394,4 @@ void net_close( int fd )
 }
 
 #endif
+

@@ -34,7 +34,7 @@
  * http://tools.ietf.org/html/rfc6070 (Test vectors)
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_PBKDF2_C)
 

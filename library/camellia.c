@@ -29,7 +29,7 @@
  *  http://info.isl.ntt.co.jp/crypt/eng/camellia/dl/01espec.pdf
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_CAMELLIA_C)
 
@@ -1033,3 +1033,4 @@ int camellia_self_test( int verbose )
 #endif
 
 #endif
+

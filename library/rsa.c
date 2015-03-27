@@ -29,7 +29,7 @@
  *  http://www.cacr.math.uwaterloo.ca/hac/about/chap8.pdf
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_RSA_C)
 
@@ -1464,3 +1464,4 @@ int rsa_self_test( int verbose )
 #endif
 
 #endif
+

@@ -28,7 +28,7 @@
  *  http://www.cacr.math.uwaterloo.ca/hac/ (chapter 12)
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_DHM_C)
 

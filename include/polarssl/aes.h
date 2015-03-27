@@ -1,3 +1,8 @@
+/*******************************************************************************
+*            Portions COPYRIGHT 2015 STMicroelectronics                        *
+*            Portions Copyright (C) 2006-2013, Brainspark B.V.                 *
+*******************************************************************************/
+
 /**
  * \file aes.h
  *
@@ -24,6 +29,33 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+ 
+/**
+  ******************************************************************************
+  * @file    aes.h
+  * @author  MCD Application Team
+  * @brief   This file has been modified to support the hardware Cryptographic and
+  *          Hash processors embedded in STM32F415xx/417xx/437xx/439xx/756xx devices.
+  *          This support is activated by defining the "USE_STM32F4XX_HW_CRYPTO"
+  *          or "USE_STM32F7XX_HW_CRYPTO" macro in PolarSSL config.h file.
+  ******************************************************************************
+  * @attention
+  *
+  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
+  * You may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at:
+  *
+  *        http://www.st.com/software_license_agreement_liberty_v2
+  *
+  * Unless required by applicable law or agreed to in writing, software 
+  * distributed under the License is distributed on an "AS IS" BASIS, 
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  *
+  ******************************************************************************
+  */
+   
 #ifndef POLARSSL_AES_H
 #define POLARSSL_AES_H
 
@@ -56,6 +88,10 @@ typedef struct
     int nr;                     /*!<  number of rounds  */
     uint32_t *rk;               /*!<  AES round keys    */
     uint32_t buf[68];           /*!<  unaligned data    */
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) 
+    unsigned char aes_enc_key[32]; /* Encryption key */
+    unsigned char aes_dec_key[32]; /* Decryption key */
+#endif /* USE_STM32_HW_CRYPTO */
 }
 aes_context;
 

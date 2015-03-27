@@ -139,9 +139,8 @@
  * Store the AES tables in ROM.
  *
  * Uncomment this macro to store the AES tables in ROM.
- *
-#define POLARSSL_AES_ROM_TABLES
  */
+#define POLARSSL_AES_ROM_TABLES
 
 /**
  * \def POLARSSL_CIPHER_MODE_CFB
@@ -239,6 +238,7 @@
  * Uncomment this macro to disable the built-in platform entropy functions.
 #define POLARSSL_NO_PLATFORM_ENTROPY
  */
+
 
 /**
  * \def POLARSSL_PKCS1_V21
@@ -627,7 +627,7 @@
  * Requires: POLARSSL_TIMING_C
  *
  * Uncomment to enable the HAVEGE random generator.
-#define POLARSSL_HAVEGE_C
+ * #define POLARSSL_HAVEGE_C
  */
 
 /**
@@ -876,8 +876,9 @@
  * Requires: POLARSSL_SSL_TLS_C
  *
  * This module is required for SSL/TLS server support.
+ * #define POLARSSL_SSL_SRV_C
  */
-#define POLARSSL_SSL_SRV_C
+
 
 /**
  * \def POLARSSL_SSL_TLS_C
@@ -903,8 +904,8 @@
  * Caller:  library/havege.c
  *
  * This module is used by the HAVEGE random number generator.
+ * #define POLARSSL_TIMING_C
  */
-#define POLARSSL_TIMING_C
 
 /**
  * \def POLARSSL_VERSION_C

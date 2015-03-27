@@ -1,3 +1,8 @@
+/*******************************************************************************
+*            Portions COPYRIGHT 2015 STMicroelectronics                        *
+*            Portions Copyright (C) 2006-2013, Brainspark B.V.                 *
+*******************************************************************************/
+
 /*
  *  RFC 1321 compliant MD5 implementation
  *
@@ -28,7 +33,33 @@
  *  http://www.ietf.org/rfc/rfc1321.txt
  */
 
-#include "polarssl/config.h"
+/**
+  ******************************************************************************
+  * @file    md5.c
+  * @author  MCD Application Team
+  * @brief   This file has been modified to support the hardware Cryptographic and
+  *          Hash processors embedded in STM32F415xx/417xx/437xx/439xx/756xx devices.
+  *          This support is activated by defining the "USE_STM32F4XX_HW_CRYPTO"
+  *          or "USE_STM32F7XX_HW_CRYPTO" macro in PolarSSL config.h file.
+  ******************************************************************************
+  * @attention
+  *
+  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
+  * You may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at:
+  *
+  *        http://www.st.com/software_license_agreement_liberty_v2
+  *
+  * Unless required by applicable law or agreed to in writing, software 
+  * distributed under the License is distributed on an "AS IS" BASIS, 
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  *
+  ******************************************************************************
+  */
+
+#include "config.h"
 
 #if defined(POLARSSL_MD5_C)
 
@@ -37,6 +68,10 @@
 #if defined(POLARSSL_FS_IO) || defined(POLARSSL_SELF_TEST)
 #include <stdio.h>
 #endif
+
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) /* use HW Crypto */ 
+HASH_HandleTypeDef hhash_md5;
+#endif /* USE_STM32_HW_CRYPTO */
 
 #if !defined(POLARSSL_MD5_ALT)
 
@@ -285,6 +320,20 @@ void md5_finish( md5_context *ctx, unsigned char output[16] )
  */
 void md5( const unsigned char *input, size_t ilen, unsigned char output[16] )
 {
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) /* use HW Crypto */
+  
+  /* HASH IP initialization */
+  HAL_HASH_DeInit(&hhash_md5);
+
+  /* HASH Configuration */
+  hhash_md5.Init.DataType = HASH_DATATYPE_8B;
+  
+  HAL_HASH_Init(&hhash_md5);
+  
+  /* Compute MD5 */
+  HAL_HASH_MD5_Start(&hhash_md5, (uint8_t *)input, ilen, (uint8_t *)output, 10);
+
+#else /* use SW Crypto */
     md5_context ctx;
 
     md5_starts( &ctx );
@@ -292,6 +341,7 @@ void md5( const unsigned char *input, size_t ilen, unsigned char output[16] )
     md5_finish( &ctx, output );
 
     memset( &ctx, 0, sizeof( md5_context ) );
+#endif /* USE_STM32_HW_CRYPTO */
 }
 
 #if defined(POLARSSL_FS_IO)
@@ -398,6 +448,22 @@ void md5_hmac( const unsigned char *key, size_t keylen,
                const unsigned char *input, size_t ilen,
                unsigned char output[16] )
 {
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) /* use HW Crypto */
+  
+  /* HASH IP initialization */
+  HAL_HASH_DeInit(&hhash_md5);
+
+  /* HASH Configuration */
+  hhash_md5.Init.DataType = HASH_DATATYPE_8B;
+  hhash_md5.Init.KeySize = keylen;
+  hhash_md5.Init.pKey = (uint8_t *)key; 
+  
+  HAL_HASH_Init(&hhash_md5);
+  
+  /* Compute MD5 */
+  HAL_HMAC_MD5_Start(&hhash_md5, (uint8_t *)input, ilen, (uint8_t *)output, 10);
+
+#else /* use SW Crypto */
     md5_context ctx;
 
     md5_hmac_starts( &ctx, key, keylen );
@@ -405,6 +471,7 @@ void md5_hmac( const unsigned char *key, size_t keylen,
     md5_hmac_finish( &ctx, output );
 
     memset( &ctx, 0, sizeof( md5_context ) );
+#endif /* USE_STM32_HW_CRYPTO */
 }
 
 #if defined(POLARSSL_SELF_TEST)

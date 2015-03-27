@@ -28,7 +28,7 @@
  *  http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_SHA4_C)
 
@@ -758,3 +758,4 @@ int sha4_self_test( int verbose )
 #endif
 
 #endif
+

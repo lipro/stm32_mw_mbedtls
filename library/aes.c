@@ -1,3 +1,8 @@
+/*******************************************************************************
+*            Portions COPYRIGHT 2015 STMicroelectronics                        *
+*            Portions Copyright (C) 2006-2013, Brainspark B.V.                 *
+*******************************************************************************/
+
 /*
  *  FIPS-197 compliant AES implementation
  *
@@ -28,8 +33,34 @@
  *  http://csrc.nist.gov/encryption/aes/rijndael/Rijndael.pdf
  *  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
  */
+ 
+/**
+  ******************************************************************************
+  * @file    aes.c
+  * @author  MCD Application Team
+  * @brief   This file has been modified to support the hardware Cryptographic and
+  *          Hash processors embedded in STM32F415xx/417xx/437xx/439xx/756xx devices.
+  *          This support is activated by defining the "USE_STM32F4XX_HW_CRYPTO"
+  *          or "USE_STM32F7XX_HW_CRYPTO" macro in PolarSSL config.h file.
+  ******************************************************************************
+  * @attention
+  *
+  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
+  * You may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at:
+  *
+  *        http://www.st.com/software_license_agreement_liberty_v2
+  *
+  * Unless required by applicable law or agreed to in writing, software 
+  * distributed under the License is distributed on an "AS IS" BASIS, 
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  *
+  ******************************************************************************
+  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_AES_C)
 
@@ -39,6 +70,10 @@
 #endif
 
 #if !defined(POLARSSL_AES_ALT)
+
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) 
+CRYP_HandleTypeDef hcryp_aes;
+#else /* use SW Crypto */
 
 /*
  * 32-bit integer manipulation macros (little endian)
@@ -445,11 +480,34 @@ static void aes_gen_tables( void )
 
 #endif
 
+#endif /* USE_STM32_HW_CRYPTO */
+
 /*
  * AES key schedule (encryption)
  */
 int aes_setkey_enc( aes_context *ctx, const unsigned char *key, unsigned int keysize )
 {
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) /* use HW Crypto */
+  switch( keysize )
+  {
+    case 128:
+      ctx->nr = 10;
+      memcpy(ctx->aes_enc_key, key, 16);
+      break;
+    case 192: 
+      ctx->nr = 12;
+      memcpy(ctx->aes_enc_key, key, 24);
+      break;
+    case 256:
+      ctx->nr = 14;
+      memcpy(ctx->aes_enc_key, key, 32);
+      break;
+   default : return( POLARSSL_ERR_AES_INVALID_KEY_LENGTH );
+  }
+  return(0);
+
+#else /* use SW Crypto */
+
     unsigned int i;
     uint32_t *RK;
 
@@ -553,6 +611,8 @@ int aes_setkey_enc( aes_context *ctx, const unsigned char *key, unsigned int key
     }
 
     return( 0 );
+    
+#endif /* USE_STM32_HW_CRYPTO */
 }
 
 /*
@@ -560,6 +620,27 @@ int aes_setkey_enc( aes_context *ctx, const unsigned char *key, unsigned int key
  */
 int aes_setkey_dec( aes_context *ctx, const unsigned char *key, unsigned int keysize )
 {
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) /* use HW Crypto */
+  switch( keysize )
+  {
+    case 128: 
+      ctx->nr = 10;
+      memcpy(ctx->aes_dec_key, key, 16);
+      break;
+    case 192: 
+      ctx->nr = 12;
+      memcpy(ctx->aes_dec_key, key, 24);
+      break;
+    case 256:
+      ctx->nr = 14;
+      memcpy(ctx->aes_dec_key, key, 32); 
+      break;
+    default : return( POLARSSL_ERR_AES_INVALID_KEY_LENGTH );
+  }
+  return( 0 );
+
+#else /* use SW Crypto */
+
     int i, j;
     aes_context cty;
     uint32_t *RK;
@@ -614,6 +695,8 @@ int aes_setkey_dec( aes_context *ctx, const unsigned char *key, unsigned int key
     memset( &cty, 0, sizeof( aes_context ) );
 
     return( 0 );
+
+#endif /* USE_STM32_HW_CRYPTO */
 }
 
 #define AES_FROUND(X0,X1,X2,X3,Y0,Y1,Y2,Y3)     \
@@ -670,6 +753,45 @@ int aes_crypt_ecb( aes_context *ctx,
                     const unsigned char input[16],
                     unsigned char output[16] )
 {
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) /* use HW Crypto */ 
+  
+  /* Deinitializes the CRYP peripheral */
+  HAL_CRYP_DeInit(&hcryp_aes);
+  
+  hcryp_aes.Init.DataType = CRYP_DATATYPE_8B;
+  
+  switch( ctx->nr )
+  {
+  case 10: hcryp_aes.Init.KeySize = CRYP_KEYSIZE_128B; break;
+  case 12: hcryp_aes.Init.KeySize = CRYP_KEYSIZE_192B; break;
+  case 14: hcryp_aes.Init.KeySize = CRYP_KEYSIZE_256B; break;
+  default : break;
+  }
+  
+ /*------------------ AES Decryption ------------------*/       
+  if(mode == AES_DECRYPT) /* AES decryption */
+  { 
+    hcryp_aes.Instance = CRYP;  
+    hcryp_aes.Init.pKey = ctx->aes_dec_key;
+  
+    HAL_CRYP_Init(&hcryp_aes);
+  
+    HAL_CRYP_AESECB_Decrypt(&hcryp_aes, (uint8_t *)input, 16, (uint8_t *)output, 10);
+
+  }
+  /*------------------ AES Encryption ------------------*/
+  else /* AES encryption */
+  { 
+    hcryp_aes.Instance = CRYP;  
+    hcryp_aes.Init.pKey = ctx->aes_enc_key;
+  
+    HAL_CRYP_Init(&hcryp_aes);
+  
+    HAL_CRYP_AESECB_Encrypt(&hcryp_aes, (uint8_t *)input, 16, (uint8_t *)output, 10);
+  }
+
+#else /* use SW Crypto */
+
     int i;
     uint32_t *RK, X0, X1, X2, X3, Y0, Y1, Y2, Y3;
 
@@ -765,6 +887,8 @@ int aes_crypt_ecb( aes_context *ctx,
     PUT_UINT32_LE( X1, output,  4 );
     PUT_UINT32_LE( X2, output,  8 );
     PUT_UINT32_LE( X3, output, 12 );
+
+#endif /* USE_STM32_HW_CRYPTO */
 
     return( 0 );
 }

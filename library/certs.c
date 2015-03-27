@@ -23,7 +23,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_CERTS_C)
 
@@ -194,3 +194,4 @@ const char test_dhm_params[] =
 "-----END DH PARAMETERS-----\r\n";
 
 #endif
+

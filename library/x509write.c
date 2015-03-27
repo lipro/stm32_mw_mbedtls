@@ -23,7 +23,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_X509_WRITE_C)
 
@@ -283,3 +283,4 @@ int x509_write_cert_req( unsigned char *buf, size_t size, rsa_context *rsa,
 }
 
 #endif
+

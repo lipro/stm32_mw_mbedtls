@@ -1,3 +1,8 @@
+/*******************************************************************************
+*            Portions COPYRIGHT 2015 STMicroelectronics                        *
+*            Portions Copyright (C) 2006-2013, Brainspark B.V.                 *
+*******************************************************************************/
+
 /*
  *  FIPS-180-1 compliant SHA-1 implementation
  *
@@ -27,8 +32,34 @@
  *
  *  http://www.itl.nist.gov/fipspubs/fip180-1.htm
  */
+ 
+/**
+  ******************************************************************************
+  * @file    sha1.c
+  * @author  MCD Application Team
+  * @brief   This file has been modified to support the hardware Cryptographic and
+  *          Hash processors embedded in STM32F415xx/417xx/437xx/439xx/756xx devices.
+  *          This support is activated by defining the "USE_STM32F4XX_HW_CRYPTO"
+  *          or "USE_STM32F7XX_HW_CRYPTO" macro in PolarSSL config.h file.
+  ******************************************************************************
+  * @attention
+  *
+  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
+  * You may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at:
+  *
+  *        http://www.st.com/software_license_agreement_liberty_v2
+  *
+  * Unless required by applicable law or agreed to in writing, software 
+  * distributed under the License is distributed on an "AS IS" BASIS, 
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  *
+  ******************************************************************************
+  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_SHA1_C)
 
@@ -37,6 +68,10 @@
 #if defined(POLARSSL_FS_IO) || defined(POLARSSL_SELF_TEST)
 #include <stdio.h>
 #endif
+
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) /* use HW Crypto */ 
+HASH_HandleTypeDef hhash_sha1;
+#endif /* USE_STM32_HW_CRYPTO */
 
 #if !defined(POLARSSL_SHA1_ALT)
 
@@ -318,6 +353,18 @@ void sha1_finish( sha1_context *ctx, unsigned char output[20] )
  */
 void sha1( const unsigned char *input, size_t ilen, unsigned char output[20] )
 {
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) /* use HW Crypto */
+
+  /* HASH IP initialization */
+  HAL_HASH_DeInit(&hhash_sha1);
+  
+  /* HASH Configuration */
+  hhash_sha1.Init.DataType = HASH_DATATYPE_8B;
+  HAL_HASH_Init(&hhash_sha1);
+
+  HAL_HASH_SHA1_Start(&hhash_sha1, (uint8_t *)input, ilen, (uint8_t *)output, 10);
+
+#else /* use SW Crypto */
     sha1_context ctx;
 
     sha1_starts( &ctx );
@@ -325,6 +372,7 @@ void sha1( const unsigned char *input, size_t ilen, unsigned char output[20] )
     sha1_finish( &ctx, output );
 
     memset( &ctx, 0, sizeof( sha1_context ) );
+#endif /* USE_STM32_HW_CRYPTO */
 }
 
 #if defined(POLARSSL_FS_IO)
@@ -431,6 +479,21 @@ void sha1_hmac( const unsigned char *key, size_t keylen,
                 const unsigned char *input, size_t ilen,
                 unsigned char output[20] )
 {
+#if defined(USE_STM32F4XX_HW_CRYPTO) || defined(USE_STM32F7XX_HW_CRYPTO) /* use HW Crypto */
+
+  /* HASH IP initialization */
+  HAL_HASH_DeInit(&hhash_sha1);
+  
+  /* HASH Configuration */
+  hhash_sha1.Init.DataType = HASH_DATATYPE_8B;
+  hhash_sha1.Init.pKey = (uint8_t *)key;
+  hhash_sha1.Init.KeySize = keylen;
+  
+  HAL_HASH_Init(&hhash_sha1);
+
+  HAL_HMAC_SHA1_Start(&hhash_sha1, (uint8_t *)input, ilen, (uint8_t *)output, 10);
+
+#else /* use SW Crypto */
     sha1_context ctx;
 
     sha1_hmac_starts( &ctx, key, keylen );
@@ -438,6 +501,7 @@ void sha1_hmac( const unsigned char *key, size_t keylen,
     sha1_hmac_finish( &ctx, output );
 
     memset( &ctx, 0, sizeof( sha1_context ) );
+#endif /* USE_STM32_HW_CRYPTO */
 }
 
 #if defined(POLARSSL_SELF_TEST)
@@ -622,3 +686,4 @@ int sha1_self_test( int verbose )
 #endif
 
 #endif
+

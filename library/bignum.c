@@ -30,7 +30,7 @@
  *  http://math.libtomcrypt.com/files/tommath.pdf
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_BIGNUM_C)
 
@@ -2141,3 +2141,4 @@ cleanup:
 #endif
 
 #endif
+

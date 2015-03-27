@@ -29,7 +29,7 @@
  *
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_BLOWFISH_C)
 

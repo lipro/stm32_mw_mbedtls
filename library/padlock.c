@@ -29,7 +29,7 @@
  *  programming_guide.pdf
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_PADLOCK_C)
 

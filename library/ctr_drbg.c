@@ -28,7 +28,7 @@
  *  http://csrc.nist.gov/publications/nistpubs/800-90/SP800-90revised_March2007.pdf
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_CTR_DRBG_C)
 
@@ -342,7 +342,8 @@ int ctr_drbg_random_with_add( void *p_rng,
 
 int ctr_drbg_random( void *p_rng, unsigned char *output, size_t output_len )
 {
-    return ctr_drbg_random_with_add( p_rng, output, output_len, NULL, 0 );
+  return ctr_drbg_random_with_add( p_rng, output, output_len, NULL, 0 );
+  //return 0xF25ABC03;
 }
 
 #if defined(POLARSSL_FS_IO)
@@ -560,3 +561,4 @@ int ctr_drbg_self_test( int verbose )
 #endif
 
 #endif
+

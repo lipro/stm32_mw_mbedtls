@@ -23,7 +23,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_VERSION_C)
 
@@ -48,3 +48,4 @@ void version_get_string_full( char *string )
 }
 
 #endif /* POLARSSL_VERSION_C */
+

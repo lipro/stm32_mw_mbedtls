@@ -29,7 +29,7 @@
  *  http://www.ietf.org/rfc/rfc1320.txt
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_MD4_C)
 
@@ -462,3 +462,4 @@ int md4_self_test( int verbose )
 #endif
 
 #endif
+

@@ -23,7 +23,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "polarssl/config.h"
+#include "config.h"
 
 #if defined(POLARSSL_TIMING_C)
 
@@ -40,13 +40,14 @@ struct _hr_time
 };
 
 #else
-
+#if  (!defined(__ICCARM__))
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#endif
 #include <signal.h>
 #include <time.h>
-
+#include <sockets.h>
 struct _hr_time
 {
     struct timeval start;
@@ -274,6 +275,8 @@ unsigned long get_timer( struct hr_time *val, int reset )
 
     return( delta );
 }
+
+//#define INTEGRITY
 
 #if defined(INTEGRITY)
 void m_sleep( int milliseconds )
