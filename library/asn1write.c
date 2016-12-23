@@ -82,7 +82,7 @@ int mbedtls_asn1_write_len( unsigned char **p, unsigned char *start, size_t len 
         *--(*p) = 0x83;
         return( 4 );
     }
-
+#if (__WORDSIZE == 64)
     if( len <= 0xFFFFFFFF )
     {
         if( *p - start < 5 )
@@ -95,7 +95,7 @@ int mbedtls_asn1_write_len( unsigned char **p, unsigned char *start, size_t len 
         *--(*p) = 0x84;
         return( 5 );
     }
-
+#endif
     return( MBEDTLS_ERR_ASN1_INVALID_LENGTH );
 }
 
