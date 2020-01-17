@@ -1,42 +1,41 @@
+/**
+  *  Portions COPYRIGHT 2018 STMicroelectronics, All Rights Reserved
+  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
+  *
+  ******************************************************************************
+  * @file    net_sockets_template.c
+  * @author  MCD Application Team
+  * @brief   TCP/IP or UDP/IP networking template based on LwIP API, this file
+  *          need to be copied into the project tree and renamed to "net_sockets.c"
+  *
+  ******************************************************************************
+  * @attention
+  *
+  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics
+  * All rights reserved.</center></h2>
+  *
+  * This software component is licensed by ST under Apache 2.0 license,
+  * the "License"; You may not use this file except in compliance with the
+  * License. You may obtain a copy of the License at:
+  * https://opensource.org/licenses/Apache-2.0
+  *
+  ******************************************************************************
+  */
+
 /*
- *  TCP/IP or UDP/IP networking functions
+ * This is a template implmentation of the net_socket.c based on the LwIP
+ * TCP/IP Stack.
  *
- *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  SPDX-License-Identifier: Apache-2.0
- *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may
- *  not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *  http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- *  This file is part of mbed TLS (https://tls.mbed.org)
  */
-
-/* Enable definition of getaddrinfo() even when compiling with -std=c99. Must
- * be set before config.h, which pulls in glibc's features.h indirectly.
- * Harmless on other platforms. */
-#define _POSIX_C_SOURCE 200112L
-
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "mbedtls/config.h"
 #else
 #include MBEDTLS_CONFIG_FILE
 #endif
 
+#include <string.h>
+#include <stdint.h>
 #if defined(MBEDTLS_NET_C)
-
-#if !defined(unix) && !defined(__unix__) && !defined(__unix) && \
-    !defined(__APPLE__) && !defined(_WIN32) && !defined(__QNXNTO__) && \
-    !defined(__HAIKU__)
-#error "This module only works on Unix and Windows, see MBEDTLS_NET_C in config.h"
-#endif
 
 #if defined(MBEDTLS_PLATFORM_C)
 #include "mbedtls/platform.h"
@@ -46,112 +45,132 @@
 
 #include "mbedtls/net_sockets.h"
 
-#include <string.h>
-
-#if (defined(_WIN32) || defined(_WIN32_WCE)) && !defined(EFIX64) && \
-    !defined(EFI32)
-
-#define IS_EINTR( ret ) ( ( ret ) == WSAEINTR )
-
-#if !defined(_WIN32_WINNT) || (_WIN32_WINNT < 0x0501)
-#undef _WIN32_WINNT
-/* Enables getaddrinfo() & Co */
-#define _WIN32_WINNT 0x0501
-#endif
-
-#include <ws2tcpip.h>
-
-#include <winsock2.h>
-#include <windows.h>
-
-#if defined(_MSC_VER)
-#if defined(_WIN32_WCE)
-#pragma comment( lib, "ws2.lib" )
-#else
-#pragma comment( lib, "ws2_32.lib" )
-#endif
-#endif /* _MSC_VER */
-
-#define read(fd,buf,len)        recv( fd, (char*)( buf ), (int)( len ), 0 )
-#define write(fd,buf,len)       send( fd, (char*)( buf ), (int)( len ), 0 )
-#define close(fd)               closesocket(fd)
-
-static int wsa_init_done = 0;
-
-#else /* ( _WIN32 || _WIN32_WCE ) && !EFIX64 && !EFI32 */
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <errno.h>
-
-#define IS_EINTR( ret ) ( ( ret ) == EINTR )
-
-#endif /* ( _WIN32 || _WIN32_WCE ) && !EFIX64 && !EFI32 */
-
-/* Some MS functions want int and MSVC warns if we pass size_t,
- * but the standard functions use socklen_t, so cast only for MSVC */
-#if defined(_MSC_VER)
-#define MSVC_INT_CAST   (int)
-#else
-#define MSVC_INT_CAST
-#endif
-
-#include <stdio.h>
-
-#include <time.h>
-
-#include <stdint.h>
-
 /*
- * Prepare for using the sockets interface
+ * LwIP header files
+ * make sure that the LwIP project config file, "lwipopts.h", is enabling the following flags
+ * LWIP_TCP==1            : Enable TCP
+ * LWIP_UDP==1            : Enable UDP
+ * LWIP_DNS==1            : Enable DNS module (could be optional depending on the application)
+ * LWIP_SOCKET==1         : Enable Socket API
+ * LWIP_COMPAT_SOCKETS==1 : Enable BSD-style sockets functions
+ * SO_REUSE==1            : Enable SO_REUSEADDR option
  */
-static int net_prepare( void )
-{
-#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
-    !defined(EFI32)
-    WSADATA wsaData;
+#include "lwip/dhcp.h"
+#include "lwip/tcpip.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netdb.h"
+#include "lwip/sockets.h"
 
-    if( wsa_init_done == 0 )
-    {
-        if( WSAStartup( MAKEWORD(2,0), &wsaData ) != 0 )
-            return( MBEDTLS_ERR_NET_SOCKET_FAILED );
-
-        wsa_init_done = 1;
-    }
-#else
-#if !defined(EFIX64) && !defined(EFI32)
-    signal( SIGPIPE, SIG_IGN );
-#endif
-#endif
-    return( 0 );
-}
+#include "netif/ethernet.h"
 
 /*
- * Initialize a context
+ * the ethernetif.h is the lowlevel driver configuration file
+ * it should be available under the application Inc directory
+ */
+#include "ethernetif.h"
+
+
+#if (LWIP_DHCP == 0)
+#ifndef IP_ADDR
+#define IP_ADDR     "192.168.1.1"
+#endif
+
+#ifndef GW_ADDR
+#define GW_ADDR     "192.168.1.0"
+#endif
+
+#ifndef MASK_ADDR
+#define MASK_ADDR   "255.255.255.0"
+#endif
+#else
+#define DHCP_TIMEOUT 10000
+#endif /* LWIP_DHCP == 0 */
+
+static struct netif netif;
+static int initialized = 0;
+struct sockaddr_storage client_addr;
+
+static int net_would_block( const mbedtls_net_context *ctx );
+/*
+ * Initialize LwIP stack
  */
 void mbedtls_net_init( mbedtls_net_context *ctx )
 {
-    ctx->fd = -1;
+
+  ip4_addr_t addr;
+  ip4_addr_t netmask;
+  ip4_addr_t gw;
+  uint32_t start;
+  uint8_t  dhcp_status = 0;
+
+  ctx->fd = -1;
+
+  if (initialized != 0)
+    return;
+
+  tcpip_init(NULL, NULL);
+
+  /* IP default settings, to be overridden by DHCP */
+#if (LWIP_DHCP == 1)
+  ip_addr_set_zero_ip4(&addr);
+  ip_addr_set_zero_ip4(&netmask);
+  ip_addr_set_zero_ip4(&gw);
+#else
+  ip4addr_aton(IP_ADDR, &addr);
+  ip4addr_aton(GW_ADDR, &gw);
+  ip4addr_aton(MASK_ADDR, &netmask);
+#endif
+  /* regsiter the network interface
+   * ethernetif_init() is implemented in the ethernetif.c file in the app
+   * project. Please refer to the file "LwIP/src/netif/ethernetif_template.c"
+   * */
+  netif_add(&netif, &addr, &netmask, &gw, NULL, &ethernetif_init, &ethernet_input);
+
+  /* register the default network interface. */
+  netif_set_default(&netif);
+
+  if (netif_is_link_up(&netif))
+  {
+    netif_set_up(&netif);
+  }
+  else
+  {
+    netif_set_down(&netif);
+  }
+#if (LWIP_DHCP == 1)
+  dhcp_start(&netif);
+  start = sys_now();
+
+  while(( dhcp_status == 0) && (sys_now() - start < DHCP_TIMEOUT))
+  {
+    /* check whether an IP address was assigned to the interface */
+    dhcp_status = dhcp_supplied_address(&netif);
+  }
+
+  if (dhcp_status == 0)
+  {
+    mbedtls_printf(" Failed to get ip address! Please check your network configuration.\n");
+    /* infinite loop if the network intefaces fails to init */
+    while (1) {};
+  }
+  else
+  {
+    dhcp_stop(&netif);
+#endif
+    mbedtls_printf("\nIpAdress = %s\n", ip4addr_ntoa(&netif.ip_addr));
+    initialized = 1;
+#if (LWIP_DHCP == 1)
+  }
+#endif
 }
 
 /*
  * Initiate a TCP connection with host:port and the given protocol
  */
-int mbedtls_net_connect( mbedtls_net_context *ctx, const char *host,
-                         const char *port, int proto )
+int mbedtls_net_connect( mbedtls_net_context *ctx, const char *host, const char *port, int proto )
 {
     int ret;
     struct addrinfo hints, *addr_list, *cur;
-
-    if( ( ret = net_prepare() ) != 0 )
-        return( ret );
 
     /* Do name resolution with both IPv6 and IPv4 */
     memset( &hints, 0, sizeof( hints ) );
@@ -174,7 +193,7 @@ int mbedtls_net_connect( mbedtls_net_context *ctx, const char *host,
             continue;
         }
 
-        if( connect( ctx->fd, cur->ai_addr, MSVC_INT_CAST cur->ai_addrlen ) == 0 )
+        if( connect( ctx->fd, cur->ai_addr, cur->ai_addrlen ) == 0 )
         {
             ret = 0;
             break;
@@ -196,9 +215,6 @@ int mbedtls_net_bind( mbedtls_net_context *ctx, const char *bind_ip, const char 
 {
     int n, ret;
     struct addrinfo hints, *addr_list, *cur;
-
-    if( ( ret = net_prepare() ) != 0 )
-        return( ret );
 
     /* Bind to IPv6 and/or IPv4, but only in the desired protocol */
     memset( &hints, 0, sizeof( hints ) );
@@ -232,7 +248,7 @@ int mbedtls_net_bind( mbedtls_net_context *ctx, const char *bind_ip, const char 
             continue;
         }
 
-        if( bind( ctx->fd, cur->ai_addr, MSVC_INT_CAST cur->ai_addrlen ) != 0 )
+        if( bind( ctx->fd, cur->ai_addr, cur->ai_addrlen ) != 0 )
         {
             close( ctx->fd );
             ret = MBEDTLS_ERR_NET_BIND_FAILED;
@@ -261,18 +277,6 @@ int mbedtls_net_bind( mbedtls_net_context *ctx, const char *bind_ip, const char 
 
 }
 
-#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
-    !defined(EFI32)
-/*
- * Check if the requested operation would be blocking on a non-blocking socket
- * and thus 'failed' with a negative return value.
- */
-static int net_would_block( const mbedtls_net_context *ctx )
-{
-    ((void) ctx);
-    return( WSAGetLastError() == WSAEWOULDBLOCK );
-}
-#else
 /*
  * Check if the requested operation would be blocking on a non-blocking socket
  * and thus 'failed' with a negative return value.
@@ -286,7 +290,7 @@ static int net_would_block( const mbedtls_net_context *ctx )
     /*
      * Never return 'WOULD BLOCK' on a non-blocking socket
      */
-    if( ( fcntl( ctx->fd, F_GETFL ) & O_NONBLOCK ) != O_NONBLOCK )
+    if( fcntl( ctx->fd, F_GETFL, O_NONBLOCK ) != O_NONBLOCK )
     {
         errno = err;
         return( 0 );
@@ -304,7 +308,6 @@ static int net_would_block( const mbedtls_net_context *ctx )
     }
     return( 0 );
 }
-#endif /* ( _WIN32 || _WIN32_WCE ) && !EFIX64 && !EFI32 */
 
 /*
  * Accept a connection from a remote client
@@ -318,14 +321,9 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
 
     struct sockaddr_storage client_addr;
 
-#if defined(__socklen_t_defined) || defined(_SOCKLEN_T) ||  \
-    defined(_SOCKLEN_T_DECLARED) || defined(__DEFINED_socklen_t)
     socklen_t n = (socklen_t) sizeof( client_addr );
     socklen_t type_len = (socklen_t) sizeof( type );
-#else
-    int n = (int) sizeof( client_addr );
-    int type_len = (int) sizeof( type );
-#endif
+
 
     /* Is this a TCP or UDP socket? */
     if( getsockopt( bind_ctx->fd, SOL_SOCKET, SO_TYPE,
@@ -349,14 +347,6 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
         ret = (int) recvfrom( bind_ctx->fd, buf, sizeof( buf ), MSG_PEEK,
                         (struct sockaddr *) &client_addr, &n );
 
-#if defined(_WIN32)
-        if( ret == SOCKET_ERROR &&
-            WSAGetLastError() == WSAEMSGSIZE )
-        {
-            /* We know buf is too small, thanks, just peeking here */
-            ret = 0;
-        }
-#endif
     }
 
     if( ret < 0 )
@@ -401,6 +391,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
     {
         if( client_addr.ss_family == AF_INET )
         {
+#if LWIP_IPV4
             struct sockaddr_in *addr4 = (struct sockaddr_in *) &client_addr;
             *ip_len = sizeof( addr4->sin_addr.s_addr );
 
@@ -408,9 +399,11 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
                 return( MBEDTLS_ERR_NET_BUFFER_TOO_SMALL );
 
             memcpy( client_ip, &addr4->sin_addr.s_addr, *ip_len );
+#endif
         }
         else
         {
+#if LWIP_IPV6
             struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *) &client_addr;
             *ip_len = sizeof( addr6->sin6_addr.s6_addr );
 
@@ -418,6 +411,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
                 return( MBEDTLS_ERR_NET_BUFFER_TOO_SMALL );
 
             memcpy( client_ip, &addr6->sin6_addr.s6_addr, *ip_len);
+#endif
         }
     }
 
@@ -429,24 +423,14 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
  */
 int mbedtls_net_set_block( mbedtls_net_context *ctx )
 {
-#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
-    !defined(EFI32)
-    u_long n = 0;
-    return( ioctlsocket( ctx->fd, FIONBIO, &n ) );
-#else
-    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) & ~O_NONBLOCK ) );
-#endif
+  /* LwIP doesn't currently support it  */
+    return( 1 );
 }
 
 int mbedtls_net_set_nonblock( mbedtls_net_context *ctx )
 {
-#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
-    !defined(EFI32)
-    u_long n = 1;
-    return( ioctlsocket( ctx->fd, FIONBIO, &n ) );
-#else
-    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) | O_NONBLOCK ) );
-#endif
+
+    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL, 0 ) | O_NONBLOCK ) );
 }
 
 /*
@@ -466,15 +450,6 @@ int mbedtls_net_poll( mbedtls_net_context *ctx, uint32_t rw, uint32_t timeout )
     if( fd < 0 )
         return( MBEDTLS_ERR_NET_INVALID_CONTEXT );
 
-#if defined(__has_feature)
-#if __has_feature(memory_sanitizer)
-    /* Ensure that memory sanitizers consider read_fds and write_fds as
-     * initialized even on platforms such as Glibc/x86_64 where FD_ZERO
-     * is implemented in assembly. */
-    memset( &read_fds, 0, sizeof( read_fds ) );
-    memset( &write_fds, 0, sizeof( write_fds ) );
-#endif
-#endif
 
     FD_ZERO( &read_fds );
     if( rw & MBEDTLS_NET_POLL_READ )
@@ -501,7 +476,7 @@ int mbedtls_net_poll( mbedtls_net_context *ctx, uint32_t rw, uint32_t timeout )
         ret = select( fd + 1, &read_fds, &write_fds, NULL,
                       timeout == (uint32_t) -1 ? NULL : &tv );
     }
-    while( IS_EINTR( ret ) );
+    while( ret == EINTR );
 
     if( ret < 0 )
         return( MBEDTLS_ERR_NET_POLL_FAILED );
@@ -520,19 +495,13 @@ int mbedtls_net_poll( mbedtls_net_context *ctx, uint32_t rw, uint32_t timeout )
  */
 void mbedtls_net_usleep( unsigned long usec )
 {
-#if defined(_WIN32)
-    Sleep( ( usec + 999 ) / 1000 );
-#else
     struct timeval tv;
+
     tv.tv_sec  = usec / 1000000;
-#if defined(__unix__) || defined(__unix) || \
-    ( defined(__APPLE__) && defined(__MACH__) )
-    tv.tv_usec = (suseconds_t) usec % 1000000;
-#else
     tv.tv_usec = usec % 1000000;
-#endif
+
     select( 0, NULL, NULL, NULL, &tv );
-#endif
+
 }
 
 /*
@@ -553,17 +522,11 @@ int mbedtls_net_recv( void *ctx, unsigned char *buf, size_t len )
         if( net_would_block( ctx ) != 0 )
             return( MBEDTLS_ERR_SSL_WANT_READ );
 
-#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
-    !defined(EFI32)
-        if( WSAGetLastError() == WSAECONNRESET )
-            return( MBEDTLS_ERR_NET_CONN_RESET );
-#else
         if( errno == EPIPE || errno == ECONNRESET )
             return( MBEDTLS_ERR_NET_CONN_RESET );
 
         if( errno == EINTR )
             return( MBEDTLS_ERR_SSL_WANT_READ );
-#endif
 
         return( MBEDTLS_ERR_NET_RECV_FAILED );
     }
@@ -599,14 +562,9 @@ int mbedtls_net_recv_timeout( void *ctx, unsigned char *buf,
 
     if( ret < 0 )
     {
-#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
-    !defined(EFI32)
-        if( WSAGetLastError() == WSAEINTR )
-            return( MBEDTLS_ERR_SSL_WANT_READ );
-#else
+
         if( errno == EINTR )
             return( MBEDTLS_ERR_SSL_WANT_READ );
-#endif
 
         return( MBEDTLS_ERR_NET_RECV_FAILED );
     }
@@ -633,17 +591,11 @@ int mbedtls_net_send( void *ctx, const unsigned char *buf, size_t len )
         if( net_would_block( ctx ) != 0 )
             return( MBEDTLS_ERR_SSL_WANT_WRITE );
 
-#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
-    !defined(EFI32)
-        if( WSAGetLastError() == WSAECONNRESET )
-            return( MBEDTLS_ERR_NET_CONN_RESET );
-#else
         if( errno == EPIPE || errno == ECONNRESET )
             return( MBEDTLS_ERR_NET_CONN_RESET );
 
         if( errno == EINTR )
             return( MBEDTLS_ERR_SSL_WANT_WRITE );
-#endif
 
         return( MBEDTLS_ERR_NET_SEND_FAILED );
     }
